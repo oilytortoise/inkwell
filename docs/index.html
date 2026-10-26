@@ -1336,7 +1336,24 @@ function evaluateStroke(st, act) {
   }
   S.stepStrokes.push(st);
   pushAction(act);
-  if (coverage(g, S.stepStrokes, t) >= .9) completeStep();
+  if (stepTraced(S.stepStrokes, t)) completeStep();
+}
+// A step can hold several separate lines. Each one must be traced on its own: stroke points only count
+// towards the line they're nearest to, so drawing a neighbouring line doesn't tick off a short one.
+function stepTraced(strokes, t) {
+  const { subs, pts } = stepGeom(S.lesson.steps[S.step][0]);
+  if (coverage(pts, strokes, t) < .9) return false;
+  if (subs.length < 2) return true;
+  const runs = subs.map(() => []);
+  for (const st of strokes) {
+    let cur = -1, run = null;
+    for (const p of st.pts) {
+      let bi = 0, bd = Infinity;
+      subs.forEach((s, i) => { const d = nearestToGuide(p.x, p.y, s.pts); if (d < bd) { bd = d; bi = i; } });
+      if (bi !== cur) { if (run) run.push(p); run = [p]; runs[bi].push({ pts: run }); cur = bi; } else run.push(p);
+    }
+  }
+  return subs.every((s, i) => coverage(s.pts, runs[i], t) >= .85);
 }
 function completeStep() {
   const g = stepGeom(S.lesson.steps[S.step][0]).pts;
