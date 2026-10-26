@@ -1,0 +1,14 @@
+{
+  "name": "Inkwell",
+  "short_name": "Inkwell",
+  "description": "Little drawing lessons, one line at a time.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "fullscreen",
+  "orientation": "any",
+  "background_color": "#F3F1F8",
+  "theme_color": "#D9466F",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
