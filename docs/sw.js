@@ -1,6 +1,6 @@
 // Offline cache: the page itself is network-first (so updates land straight away),
 // everything else is served from cache and refreshed in the background.
-const CACHE = 'inkwell-v5';
+const CACHE = 'inkwell-v6';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg'];
 
 self.addEventListener('install', e => {

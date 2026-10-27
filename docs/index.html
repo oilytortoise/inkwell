@@ -150,6 +150,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .guide .demo { fill: #24213F; opacity: .85; }
 .guide .cur { transition: opacity .8s ease; }
 .guide .cur.faded { opacity: .12; }
+.guide .cur.done .base { stroke: #F0A63A; stroke-opacity: .3; }
+.guide .cur.done .flow, .guide .cur.done .start, .guide .cur.done .arrow { display: none; }
 @keyframes flow { to { stroke-dashoffset: -36.2; } }
 @keyframes pulse { 50% { transform: scale(1.35); } }
 
@@ -181,7 +183,17 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 }
 .zoombar button { appearance: none; border: 0; background: none; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
 .zoombar button svg { width: 18px; height: 18px; }
-.zoombar span { min-width: 46px; text-align: center; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); }
+.zoombar span { min-width: 46px; text-align: center; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+
+/* the coloured reference picture, pinned to a corner of the page */
+.refcard {
+  appearance: none; position: absolute; left: 10px; top: 10px; z-index: 2; width: 24%; padding: 5px; cursor: zoom-in;
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); transition: width .25s ease;
+}
+.refcard.big { width: 62%; cursor: zoom-out; }
+.refcard .thumb { border-radius: 8px; width: 100%; }
+#cvHint, #gdots { pointer-events: none; }
+.clock { color: var(--muted); font-weight: 700; font-size: 15px; font-variant-numeric: tabular-nums; flex: none; }
 
 .rail {
   width: 156px; flex: none; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; align-items: stretch;
@@ -194,6 +206,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 }
 .tool svg { width: 22px; height: 22px; flex: none; }
 .tool.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.tool.ready { animation: ready 1.6s ease-in-out infinite; }
+@keyframes ready { 50% { box-shadow: 0 0 0 7px var(--accent-soft); } }
 .tool.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .tool.warn { color: var(--accent); }
 .tool:disabled, .tool.off { opacity: .35; }
@@ -208,6 +222,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
   box-shadow: inset 0 0 0 2px var(--card); min-width: 0;
 }
 .sw.on { border-color: var(--ink); transform: scale(1.1); }
+.sw.done { opacity: .3; }
 .sw.wheel-btn { background: conic-gradient(#f44, #fd4, #4d6, #4cf, #46f, #c4f, #f44); box-shadow: inset 0 0 0 2px var(--card); }
 .current { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .current i { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line); flex: none; }
@@ -254,6 +269,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
 .statline b { color: var(--ink); }
 .hint { color: var(--muted); font-size: 13px; }
 .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.times { display: flex; flex-direction: column; gap: 6px; }
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 52px; }
+.bars span { flex: 1; max-width: 22px; min-height: 4px; background: var(--line); border-radius: 4px 4px 2px 2px; }
+.bars span.now { background: var(--accent); }
 .btns .tool { flex: 1 1 auto; }
 @media (max-width: 560px) { .result { grid-template-columns: 1fr; } }
 
@@ -326,6 +345,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
   <div class="topbar">
     <button class="round-btn" id="backBtn" type="button" aria-label="Back to lessons"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg></button>
     <div class="heading"><div class="t" id="pTitle">Lesson</div><div class="h" id="pHint">Hint</div></div>
+    <span class="clock" id="pClock" hidden></span>
     <div class="dots" id="pDots"></div>
   </div>
   <div class="play-main">
@@ -334,16 +354,19 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
         <div class="sheet" id="sheet">
           <canvas id="cvColor" width="2000" height="2000"></canvas>
           <canvas id="cvInk" width="2000" height="2000"></canvas>
+          <canvas id="cvHint" width="1000" height="1000"></canvas>
           <canvas id="cvWet" width="1000" height="1000"></canvas>
           <svg class="guide" id="guide" viewBox="0 0 1000 1000"></svg>
+          <svg class="guide" id="gdots" viewBox="0 0 1000 1000"></svg>
         </div>
+        <button class="refcard" id="refCard" type="button" aria-label="Reference picture: tap to make it bigger or smaller" hidden><div class="thumb" id="refThumb"></div></button>
         <div class="sizeprev" id="sizePrev"></div>
         <div class="toast" id="toast"></div>
         <div class="zoombar">
           <button type="button" id="zOut" aria-label="Zoom out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg></button>
           <span id="zLabel">100%</span>
           <button type="button" id="zIn" aria-label="Zoom in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
-          <button type="button" id="zFit" aria-label="Fit page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+          <button type="button" id="zFit" aria-label="Fit and straighten the page" title="Fit and straighten the page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
         </div>
       </div>
     </div>
@@ -359,6 +382,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
       </div>
       <span class="label">Colour</span>
       <div class="current"><i id="curSw"></i><span id="curHex">#24213F</span></div>
+      <span class="label" id="guideLabel">This picture</span>
+      <div class="swatches" id="guideSw"></div>
       <div class="swatches" id="swatches"></div>
       <span class="label" id="recentLabel">Recent</span>
       <div class="swatches" id="recentSw"></div>
@@ -367,10 +392,12 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
       <div class="pair">
         <button class="tool" id="bUndo" type="button" aria-label="Undo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></button>
         <button class="tool" id="bShow" type="button" aria-label="Show me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>
+        <button class="tool" id="bRef" type="button" aria-label="Show the coloured picture" title="Show the coloured picture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg></button>
+        <button class="tool" id="bGuide" type="button" aria-label="Colour guide" title="Colour guide: show which colour goes where"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.9 0 1.7-.8 1.7-1.7 0-.4-.2-.8-.4-1.1-.3-.3-.4-.7-.4-1.1 0-.9.8-1.7 1.7-1.7h2c3.1 0 5.6-2.5 5.6-5.6C22 6 17.5 2 12 2Z"/></svg></button>
         <button class="tool warn" id="bClear" type="button" aria-label="Clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg></button>
       </div>
       <div class="spacer"></div>
-      <button class="tool primary" id="bNext" type="button"><span class="tl">Skip</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
+      <button class="tool keep" id="bNext" type="button"><span class="tl">Skip</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg></button>
       <button class="tool primary" id="bDone" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><span class="tl">Finish</span></button>
     </div>
   </div>
@@ -385,8 +412,10 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
       <div class="start-actions">
         <button class="choice" id="stTrace" type="button"><b>Trace it step by step</b><span id="stTraceSub">Earn stars for each step</span></button>
         <button class="choice" id="stColour" type="button"><b>Go straight to colouring</b><span>The lines are drawn for you</span></button>
+        <div class="statline" id="stTimes"></div>
       </div>
     </div>
+    <div class="setting" id="stGuideRow"><label for="stGuide"><b>Colour guide</b><div class="d">Dots show which colour goes where, to match the picture.</div></label><input class="switch" type="checkbox" id="stGuide"></div>
   </div>
 </div>
 
@@ -416,6 +445,7 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
         <div class="bigstars" id="rStars"></div>
         <h2 id="rTitle">Lovely work!</h2>
         <div class="statline" id="rStats"></div>
+        <div class="times" id="rTimes"></div>
         <div class="hint" id="rHint">Saved to My drawings.</div>
         <div class="btns">
           <button class="tool keep" id="rAgain" type="button"><span class="tl">Draw again</span></button>
@@ -452,10 +482,11 @@ button:focus-visible, input:focus-visible { outline: 3px solid var(--accent); ou
         <div class="seg" id="segDiff"><button data-v="relaxed" type="button">Relaxed</button><button data-v="normal" type="button">Normal</button><button data-v="precise" type="button">Precise</button></div></div>
       <div class="setting"><label for="sDemo"><b>Show me each step</b><div class="d">A dot traces the line before you draw it.</div></label><input class="switch" type="checkbox" id="sDemo"></div>
       <div class="setting"><label for="sFade"><b>Fading guides</b><div class="d">A challenge: the guide fades out after a moment, so you draw from memory.</div></label><input class="switch" type="checkbox" id="sFade"></div>
-      <div class="setting"><label for="sPen"><b>Pen only</b><div class="d">Only a stylus draws. One finger pans the page, two fingers zoom.</div></label><input class="switch" type="checkbox" id="sPen"></div>
+      <div class="setting"><label for="sPen"><b>Pen only</b><div class="d">Only a stylus draws. One finger pans the page, two fingers zoom and turn it.</div></label><input class="switch" type="checkbox" id="sPen"></div>
       <div class="setting"><label for="sPressure"><b>Pen pressure</b><div class="d">With a stylus, press harder for thicker lines. When off, lines are always the size you pick.</div></label><input class="switch" type="checkbox" id="sPressure"></div>
+      <div class="setting"><label for="sTimer"><b>Show timer</b><div class="d">A clock at the top while you draw. Your times are kept either way.</div></label><input class="switch" type="checkbox" id="sTimer"></div>
       <div class="setting"><label for="sSound"><b>Sounds</b><div class="d">Soft chimes when you earn stars.</div></label><input class="switch" type="checkbox" id="sSound"></div>
-      <div class="setting"><div><b>Reset progress</b><div class="d">Clears stars and streak. Drawings stay.</div></div><button class="tool warn keep" id="sReset" type="button"><span class="tl">Reset</span></button></div>
+      <div class="setting"><div><b>Reset progress</b><div class="d">Clears stars, times and streak. Drawings stay.</div></div><button class="tool warn keep" id="sReset" type="button"><span class="tl">Reset</span></button></div>
     </div>
   </div>
 </div>
@@ -478,10 +509,13 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('inkwell.' + k); return v ? JSON.parse(v) : d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('inkwell.' + k, JSON.stringify(v)); return true; } catch { return false; } }
 };
-const settings = Object.assign({ difficulty: 'normal', demo: true, fade: false, penOnly: false, pressure: false, sound: true }, store.get('settings', {}));
+const settings = Object.assign({ difficulty: 'normal', demo: true, fade: false, penOnly: false, pressure: false, sound: true, timer: true, ref: true }, store.get('settings', {}));
 const saveSettings = () => store.set('settings', settings);
 let progress = store.get('progress', {});   // lessonId -> best stars
 let days = store.get('days', []);           // ISO dates she drew on
+let times = store.get('times', {});         // 'lessonId:mode' -> [{d, s}] finish times in seconds
+const timesFor = (id, mode) => times[`${id}:${mode}`] || [];
+const firstTime = l => !timesFor(l.id, 'trace').length && !timesFor(l.id, 'colour').length;
 const kit = Object.assign({ tool: 'pen', color: INK, sizes: { pen: 6, brush: 30, water: 45, eraser: 30 }, recent: [] }, store.get('kit', {}));
 const saveKit = () => store.set('kit', kit);
 
@@ -524,6 +558,29 @@ function starSteps() {
   return o.map((p, i) => [`M${n[(i + 4) % 5]} L${p} L${n[i]}`, hints[i]]);
 }
 
+/* ---------- reference colours ---------- */
+// A page's paint(regs) gives each closed region of its line art a palette colour (null leaves it as paper).
+// Each region has x, y (a point well inside it), cx, cy (centroid), r (centroid distance from the middle), area, edge, tiny.
+const hitCtx = document.createElement('canvas').getContext('2d');
+const pathCache = new Map();
+function inP(d, reg) {
+  if (!pathCache.has(d)) pathCache.set(d, new Path2D(d));
+  return hitCtx.isPointInPath(pathCache.get(d), reg.x, reg.y);
+}
+const byRule = fn => regs => { for (const r of regs) if (!r.edge && !r.tiny) r.color = fn(r) || null; };
+// Mandalas: regions that are turned copies of each other (same distance out, same size) share a colour.
+const radial = pal => regs => {
+  const groups = [];
+  for (const r of regs) {
+    if (r.edge || r.tiny) continue;
+    let g = groups.find(g => Math.abs(g.r - r.r) < 6 && Math.abs(Math.log(g.area / r.area)) < .3);
+    if (!g) groups.push(g = { r: r.r, area: r.area, out: 0, list: [] });
+    g.list.push(r); g.out += Math.hypot(r.x - 500, r.y - 500);
+  }
+  groups.sort((a, b) => a.out / a.list.length - b.out / b.list.length)
+    .forEach((g, i) => { for (const r of g.list) r.color = pal[i % pal.length]; });
+};
+
 /* ---------- colouring pages (generated line art) ---------- */
 function lotusMandala() {
   const c = 500;
@@ -555,14 +612,17 @@ function butterfly() {
   const U = [['M', 515, 430], ['C', 590, 250, 790, 140, 880, 215], ['C', 950, 280, 915, 410, 790, 465], ['C', 700, 500, 600, 495, 515, 470], ['Z']];
   const L = [['M', 515, 520], ['C', 620, 515, 760, 560, 790, 660], ['C', 815, 760, 705, 830, 625, 785], ['C', 560, 750, 530, 650, 515, 560], ['Z']];
   const both = s => sh.d(s) + ' ' + sh.d(mirror(s));
-  const inner = both(scaleAbout(U, 730, 340, .6)) + ' ' + both(scaleAbout(L, 680, 665, .55));
+  const innerU = both(scaleAbout(U, 730, 340, .6)), innerL = both(scaleAbout(L, 680, 665, .55)), inner = innerU + ' ' + innerL;
   const veins = both([['M', 525, 455], ['L', 655, 268], ['M', 528, 462], ['L', 905, 292], ['M', 525, 530], ['L', 775, 640], ['M', 522, 545], ['L', 735, 770]]);
   const spotsR = [[840, 240, 13], [885, 305, 11], [850, 390, 11], [770, 440, 10], [765, 695, 12], [720, 765, 11], [650, 768, 9]];
   const spots = spotsR.map(([x, y, r]) => C(x, y, r) + ' ' + C(1000 - x, y, r)).join(' ');
   let body = E(500, 500, 16, 170) + ' ' + C(500, 305, 26);
   for (const y of [400, 450, 500, 550, 600]) { const hw = 16 * Math.sqrt(1 - ((y - 500) / 170) ** 2); body += ` M${f(500 - hw)} ${y} L${f(500 + hw)} ${y}`; }
-  const ant = both([['M', 510, 282], ['C', 530, 220, 560, 185, 590, 165]]) + ' ' + C(596, 160, 9) + ' ' + C(404, 160, 9);
-  return [
+  const knobs = C(596, 160, 9) + ' ' + C(404, 160, 9), ant = both([['M', 510, 282], ['C', 530, 220, 560, 185, 590, 165]]) + ' ' + knobs;
+  const bodyShape = E(500, 500, 16, 170) + ' ' + C(500, 305, 26) + ' ' + knobs;
+  const paint = byRule(r => inP(spots, r) ? null : inP(bodyShape, r) ? '#5B5670' : inP(innerU, r) ? '#F6C945' : inP(innerL, r) ? '#F6B5C8'
+    : inP(both(U), r) ? '#F28C38' : inP(both(L), r) ? '#D9466F' : null);
+  return { paint, steps: [
     [both(U), 'The upper wings'],
     [both(L), 'The lower wings'],
     [inner, 'Shapes inside the wings'],
@@ -570,7 +630,7 @@ function butterfly() {
     [spots, 'Spots along the edges'],
     [body, 'The body and head'],
     [ant, 'Antennae'],
-  ];
+  ] };
 }
 function pine(x, b, h) {
   const t = (top, bot, hw) => `M${f(x)} ${f(b - h + top * h)} L${f(x + hw * h)} ${f(b - h + bot * h)} L${f(x - hw * h)} ${f(b - h + bot * h)} Z`;
@@ -579,7 +639,21 @@ function pine(x, b, h) {
 const cloud = (cx, cy, s = 1) => `M${f(cx - 90 * s)} ${cy} A${f(35 * s)} ${f(35 * s)} 0 0 1 ${f(cx - 40 * s)} ${f(cy - 35 * s)} A${f(50 * s)} ${f(50 * s)} 0 0 1 ${f(cx + 45 * s)} ${f(cy - 40 * s)} A${f(38 * s)} ${f(38 * s)} 0 0 1 ${f(cx + 90 * s)} ${cy} Z`;
 const FRAME = 'M60 60 L940 60 L940 940 L60 940 Z';
 function mountainLake() {
-  return [
+  const pines = [[140, 920, 150], [230, 925, 110], [860, 920, 160], [780, 925, 100]];
+  const crowns = pines.map(([x, b, h]) => pine(x, b, h).split(' M').slice(0, 3).join(' M')).join(' ');
+  const clouds = cloud(250, 180, .9) + ' ' + cloud(560, 140, .7);
+  const paint = byRule(r =>
+    inP(C(790, 170, 55), r) ? '#F6C945'
+    : inP(clouds, r) || inP('M560 675 L560 590 L615 670 Z', r) ? null
+    : inP('M370 310 L395 330 L420 305 L445 330 L468 310 L420 250 Z M676 320 L705 335 L730 318 L760 338 L790 320 L760 290 Z', r) ? null
+    : inP('M480 680 L640 680 L615 712 L505 712 Z', r) ? '#B83A3A'
+    : inP(crowns, r) ? '#3E7D4F'
+    : inP('M60 60 L940 60 L940 470 L760 290 L620 340 L540 400 L420 250 L270 430 L180 360 L60 520 Z', r) ? '#9ED3EC'
+    : r.y < 560 ? '#8A6FE0'
+    : inP('M60 560 L940 560 L940 740 C850 770 750 720 600 750 C400 790 250 720 60 760 Z', r) ? '#4D8FE0'
+    : pines.some(([x, b, h]) => r.y > b - .12 * h && Math.abs(r.x - x) < .05 * h) ? '#A7724A'
+    : '#7BC67E');
+  return { paint, steps: [
     [FRAME, 'The frame'],
     ['M60 520 L180 360 L270 430 L420 250 L540 400 L620 340 L760 290 L940 470 M370 310 L395 330 L420 305 L445 330 L468 310 M676 320 L705 335 L730 318 L760 338 L790 320', 'Mountains and snowy peaks'],
     [C(790, 170, 55) + ' ' + ring(12, a => `M${P(790, 170, a, 72)} L${P(790, 170, a, 98)}`) + ' ' + cloud(250, 180, .9) + ' ' + cloud(560, 140, .7), 'The sun and clouds'],
@@ -587,15 +661,20 @@ function mountainLake() {
     ['M480 680 L640 680 L615 712 L505 712 Z M560 675 L560 590 L615 670 Z', 'A little sailing boat'],
     [pine(140, 920, 150) + ' ' + pine(230, 925, 110) + ' ' + pine(860, 920, 160) + ' ' + pine(780, 925, 100), 'Pine trees'],
     ['M260 230 Q280 215 300 230 Q320 215 340 230 M360 270 Q375 258 390 270 Q405 258 420 270 M420 900 L430 870 L440 900 L450 865 L460 900 M600 910 L610 880 L620 910 L632 875 L642 910', 'Birds and grass'],
-  ];
+  ] };
 }
+const FISH = [
+  [['M', -300, 0], ['C', -200, -170, 100, -170, 200, 0], ['C', 100, 170, -200, 170, -300, 0], ['Z']],
+  [['M', 200, 0], ['L', 350, -120], ['L', 330, 0], ['L', 350, 120], ['Z']],
+  [['M', -120, -115], ['Q', -60, -240, 60, -122]],
+  [['M', -110, -90], ['Q', -60, 0, -110, 90]],
+];
+const fishZones = (tx, ty, k, flip) => {
+  const d = p => sh.d(place(p, tx, ty, k, flip));
+  return { body: d(FISH[0]), fins: d(FISH[1]) + ' ' + d(FISH[2]) + ' Z', eye: C(tx + (flip ? 200 : -200) * k, ty - 30 * k, f(22 * k)) };
+};
 function fishShape(tx, ty, k, flip) {
-  const parts = [
-    [['M', -300, 0], ['C', -200, -170, 100, -170, 200, 0], ['C', 100, 170, -200, 170, -300, 0], ['Z']],
-    [['M', 200, 0], ['L', 350, -120], ['L', 330, 0], ['L', 350, 120], ['Z']],
-    [['M', -120, -115], ['Q', -60, -240, 60, -122]],
-    [['M', -110, -90], ['Q', -60, 0, -110, 90]],
-  ];
+  const parts = [...FISH];
   for (const x of [-30, 40, 110]) for (const y of [-55, 15]) parts.push([['M', x, y - 30], ['Q', x + 28, y, x, y + 30]]);
   const eye = [tx + (flip ? 200 : -200) * k, ty - 30 * k];
   return parts.map(p => sh.d(place(p, tx, ty, k, flip))).join(' ') + ' ' + C(eye[0], eye[1], f(22 * k));
@@ -607,15 +686,33 @@ function seaweed(x0, base, h, amp, ph) {
 }
 function underSea() {
   const shell = 'M590 900 A60 60 0 0 1 710 900 Z ' + [200, 225, 250, 270, 290, 315, 340].map(a => `M650 900 L${P(650, 900, a, 60)}`).join(' ');
-  return [
+  const weeds = [seaweed(120, 815, 420, 25, 0), seaweed(880, 805, 340, 22, 2), seaweed(600, 812, 190, 15, 1)];
+  const pebbles = E(200, 880, 40, 18) + ' ' + E(470, 900, 30, 14) + ' ' + E(800, 880, 46, 20) + ' ' + E(890, 912, 25, 12);
+  const bubbles = C(560, 250, 16) + ' ' + C(590, 190, 11) + ' ' + C(575, 140, 7) + ' ' + C(210, 560, 12) + ' ' + C(235, 505, 8);
+  const fish = [[fishZones(330, 330, .55, false), '#F28C38', '#F6C945'], [fishZones(700, 520, .45, true), '#8A6FE0', '#C9A6E8'], [fishZones(420, 650, .35, true), '#D9466F', '#F6B5C8']];
+  const paint = byRule(r => {
+    if (inP(bubbles, r)) return null;
+    for (const [z, body, fins] of fish) {
+      if (inP(z.eye, r)) return null;
+      if (inP(z.body, r)) return body;
+      if (inP(z.fins, r)) return fins;
+    }
+    if (inP(starPoly(330, 870, 48, 20), r)) return '#B83A3A';
+    if (inP('M590 900 A60 60 0 0 1 710 900 Z', r)) return '#F6B5C8';
+    if (inP(pebbles, r)) return '#5B5670';
+    const w = weeds.findIndex(d => inP(d, r));
+    if (w >= 0) return ['#3E7D4F', '#7BC67E', '#2E9E8F'][w];
+    return inP('M60 820 C250 780 420 850 600 810 C760 780 860 830 940 800 L940 940 L60 940 Z', r) ? '#E8C9A0' : '#4D8FE0';
+  });
+  return { paint, steps: [
     [FRAME, 'The frame'],
     ['M60 820 C250 780 420 850 600 810 C760 780 860 830 940 800 ' + E(200, 880, 40, 18) + ' ' + E(470, 900, 30, 14) + ' ' + E(800, 880, 46, 20) + ' ' + E(890, 912, 25, 12), 'Sandy seabed and pebbles'],
     [shell + ' ' + starPoly(330, 870, 48, 20), 'A shell and a starfish'],
-    [seaweed(120, 815, 420, 25, 0) + ' ' + seaweed(880, 805, 340, 22, 2) + ' ' + seaweed(600, 812, 190, 15, 1), 'Swaying seaweed'],
+    [weeds.join(' '), 'Swaying seaweed'],
     [fishShape(330, 330, .55, false), 'A big fish'],
     [fishShape(700, 520, .45, true) + ' ' + fishShape(420, 650, .35, true), 'Two more fish'],
-    [C(560, 250, 16) + ' ' + C(590, 190, 11) + ' ' + C(575, 140, 7) + ' ' + C(210, 560, 12) + ' ' + C(235, 505, 8), 'Bubbles'],
-  ];
+    [bubbles, 'Bubbles'],
+  ] };
 }
 function balloon(cx, cy, r) {
   const X = v => f(cx + v * r), Y = v => f(cy + v * r);
@@ -626,18 +723,36 @@ function balloon(cx, cy, r) {
     return `M${X(x)} ${Y(y)} Q${cx} ${Y(y + .14)} ${X(-x)} ${Y(y)}`;
   }).join(' ');
   const basket = `M${X(-.3)} ${Y(1.1)} L${X(-.2)} ${Y(1.45)} M${X(.3)} ${Y(1.1)} L${X(.2)} ${Y(1.45)} M${X(-.22)} ${Y(1.45)} L${X(.22)} ${Y(1.45)} L${X(.18)} ${Y(1.72)} L${X(-.18)} ${Y(1.72)} Z M${X(-.2)} ${Y(1.55)} L${X(.2)} ${Y(1.55)}`;
-  return { env, detail: gores + ' ' + bands, basket };
+  // Zones for the reference colours: the six stripes between the gores, and the band between the two bands.
+  const curve = k => [[cx, Y(-1)], [X(k * .45), Y(-1)], [X(k * .5), Y(.6)], [X(k * .12), Y(1.1)]];
+  const cs = [[[cx, Y(-1)], [X(-1.15), Y(-1)], [X(-1.1), Y(.6)], [X(-.3), Y(1.1)]], ...[-1.4, -.7, 0, .7, 1.4].map(curve), [[cx, Y(-1)], [X(1.15), Y(-1)], [X(1.1), Y(.6)], [X(.3), Y(1.1)]]];
+  const stripes = cs.slice(1).map((B, i) => { const A = cs[i]; return `M${pt(A[0])} C${pt(A[1])} ${pt(A[2])} ${pt(A[3])} L${pt(B[3])} C${pt(B[2])} ${pt(B[1])} ${pt(B[0])} Z`; });
+  const [b0, b1] = [.2, .55].map(t => [bz(-.3, -1.1, -1.15, 0, t), bz(1.1, .6, -1, -1, t)]);
+  const band = `M${X(b0[0])} ${Y(b0[1])} Q${cx} ${Y(b0[1] + .14)} ${X(-b0[0])} ${Y(b0[1])} L${X(-b1[0])} ${Y(b1[1])} Q${cx} ${Y(b1[1] + .14)} ${X(b1[0])} ${Y(b1[1])} Z`;
+  const box = `M${X(-.22)} ${Y(1.45)} L${X(.22)} ${Y(1.45)} L${X(.18)} ${Y(1.72)} L${X(-.18)} ${Y(1.72)} Z`;
+  return { env, detail: gores + ' ' + bands, basket, zones: { env, stripes, band, box } };
 }
 function balloons() {
   const b = [balloon(330, 330, 150), balloon(700, 250, 100), balloon(690, 640, 110)];
-  return [
+  const pals = [['#D9466F', '#F6C945'], ['#2E9E8F', '#FBE7A1'], ['#8A6FE0', '#F6B5C8']];
+  const clouds = cloud(200, 760) + ' ' + cloud(860, 480, .8) + ' ' + cloud(480, 130, .7);
+  const paint = byRule(r => {
+    for (let i = 0; i < 3; i++) {
+      const z = b[i].zones;
+      if (inP(z.box, r)) return '#A7724A';
+      if (inP(z.env, r)) { const s = Math.max(0, z.stripes.findIndex(d => inP(d, r))); return pals[i][(s + (inP(z.band, r) ? 1 : 0)) % 2]; }
+    }
+    if (inP(clouds, r)) return null;
+    return inP('M60 870 C300 800 600 920 940 840 L940 940 L60 940 Z', r) ? '#7BC67E' : '#9ED3EC';
+  });
+  return { paint, steps: [
     [FRAME, 'The frame'],
     [b.map(x => x.env).join(' '), 'Three balloon shapes'],
     [b.map(x => x.detail).join(' '), 'Stripes and bands'],
     [b.map(x => x.basket).join(' '), 'Ropes and baskets'],
-    [cloud(200, 760) + ' ' + cloud(860, 480, .8) + ' ' + cloud(480, 130, .7) + ' M60 870 C300 800 600 920 940 840', 'Clouds and hills'],
+    [clouds + ' M60 870 C300 800 600 920 940 840', 'Clouds and hills'],
     ['M150 150 Q170 135 190 150 Q210 135 230 150 M260 120 Q275 108 290 120 Q305 108 320 120 M820 820 Q835 808 850 820 Q865 808 880 820', 'Birds'],
-  ];
+  ] };
 }
 function quilt() {
   let grid = 'M100 100 L900 100 L900 900 L100 900 Z';
@@ -654,22 +769,38 @@ function quilt() {
   const row = r => [0, 1, 2, 3].map(c => tile(c, r)).join(' ');
   const zig = (ax, ay, bx, by, inX, inY) => { let d = `M${ax} ${ay}`; const n = 22; for (let i = 1; i <= n; i++) { const t = i / n, x = ax + (bx - ax) * t, y = ay + (by - ay) * t; d += ` L${f(x + (i % 2 ? inX : 0))} ${f(y + (i % 2 ? inY : 0))}`; } return d; };
   const border = 'M60 60 L940 60 L940 940 L60 940 Z ' + zig(60, 100, 940, 100, 0, -40) + ' ' + zig(60, 900, 940, 900, 0, 40) + ' ' + zig(100, 100, 100, 900, -40, 0) + ' ' + zig(900, 100, 900, 900, 40, 0);
-  return [
+  const paint = byRule(({ x, y }) => {
+    if (x < 100 || x > 900 || y < 100 || y > 900) {
+      if ((x < 100 || x > 900) && (y < 100 || y > 900)) return '#2C3E8C';
+      return Math.min(x - 60, 940 - x, y - 60, 940 - y) < 20 ? '#F6C945' : '#D9466F';
+    }
+    const c = Math.min(3, (x - 100) / 200 | 0), rw = Math.min(3, (y - 100) / 200 | 0);
+    const x0 = 100 + c * 200, y0 = 100 + rw * 200, dx = x - x0 - 100, dy = y - y0 - 100, d = Math.hypot(dx, dy);
+    switch ((rw + c) % 4) {
+      case 0: return d < 12 ? '#F6C945' : d < 40 ? '#D9466F' : d < 75 ? '#F6B5C8' : '#FBE7A1';
+      case 1: { const m = Math.abs(dx) + Math.abs(dy); return d < 14 ? '#F6C945' : m < 50 ? '#2C3E8C' : m < 100 ? '#9ED3EC' : '#2E9E8F'; }
+      case 2: return Math.min(Math.hypot(dx + 100, dy + 100), Math.hypot(dx - 100, dy + 100), Math.hypot(dx + 100, dy - 100), Math.hypot(dx - 100, dy - 100)) < 100 ? '#8A6FE0' : d < 18 ? '#F6C945' : '#C9A6E8';
+      default: return Math.max(Math.abs(dx), Math.abs(dy)) < 75 ? (d < 45 ? '#F28C38' : '#FBE7A1') : Math.abs(dy) > Math.abs(dx) ? '#7BC67E' : '#3E7D4F';
+    }
+  });
+  return { paint, steps: [
     [grid, 'The grid of squares'],
     [row(0), 'Patterns in the first row'], [row(1), 'Second row'], [row(2), 'Third row'], [row(3), 'Last row'],
     [border, 'The zigzag border'],
-  ];
+  ] };
 }
 
 /* ---------- lessons ---------- */
 const LESSONS = [
-  { id: 'lotus', cat: 'Colouring pages', detail: true, title: 'Lotus mandala', steps: lotusMandala() },
-  { id: 'sunmandala', cat: 'Colouring pages', detail: true, title: 'Sun mandala', steps: sunMandala() },
-  { id: 'butterfly', cat: 'Colouring pages', detail: true, title: 'Butterfly', steps: butterfly() },
-  { id: 'lake', cat: 'Colouring pages', detail: true, title: 'Mountain lake', steps: mountainLake() },
-  { id: 'sea', cat: 'Colouring pages', detail: true, title: 'Under the sea', steps: underSea() },
-  { id: 'balloons', cat: 'Colouring pages', detail: true, title: 'Hot air balloons', steps: balloons() },
-  { id: 'quilt', cat: 'Colouring pages', detail: true, title: 'Patchwork quilt', steps: quilt() },
+  { id: 'lotus', cat: 'Colouring pages', detail: true, title: 'Lotus mandala', steps: lotusMandala(),
+    paint: radial(['#F6C945', '#F28C38', '#D9466F', '#F6B5C8', '#8A6FE0', '#C9A6E8', '#2E9E8F', '#9ED3EC', '#4D8FE0', '#FBE7A1']) },
+  { id: 'sunmandala', cat: 'Colouring pages', detail: true, title: 'Sun mandala', steps: sunMandala(),
+    paint: radial(['#F6C945', '#F28C38', '#B83A3A', '#FBE7A1', '#D9466F', '#F6B5C8', '#2E9E8F', '#9ED3EC']) },
+  { id: 'butterfly', cat: 'Colouring pages', detail: true, title: 'Butterfly', ...butterfly() },
+  { id: 'lake', cat: 'Colouring pages', detail: true, title: 'Mountain lake', ...mountainLake() },
+  { id: 'sea', cat: 'Colouring pages', detail: true, title: 'Under the sea', ...underSea() },
+  { id: 'balloons', cat: 'Colouring pages', detail: true, title: 'Hot air balloons', ...balloons() },
+  { id: 'quilt', cat: 'Colouring pages', detail: true, title: 'Patchwork quilt', ...quilt() },
 
   { id: 'lines', cat: 'Warm-ups', title: 'Steady lines', steps: [
     ['M180 250 L820 250', 'Pull one smooth line from left to right'],
@@ -679,7 +810,8 @@ const LESSONS = [
   { id: 'circles', cat: 'Warm-ups', title: 'Round and round', steps: [
     [C(500, 500, 300), 'Draw a big circle in one go'],
     [C(500, 500, 175), 'A smaller circle inside it'],
-    [C(500, 500, 60), 'And a little one in the middle']] },
+    [C(500, 500, 60), 'And a little one in the middle']],
+    paint: byRule(r => { const d = Math.hypot(r.x - 500, r.y - 500); return d < 60 ? '#F6C945' : d < 175 ? '#F28C38' : '#D9466F'; }) },
   { id: 'waves', cat: 'Warm-ups', title: 'Ocean waves', steps: [
     [wave(280, 90), 'Ride the first wave'],
     [wave(500, 120), 'A bigger wave'],
@@ -689,19 +821,23 @@ const LESSONS = [
 
   { id: 'heart', cat: 'Shapes & things', title: 'Heart', steps: [
     ['M500 820 C200 620 120 420 220 300 C320 190 460 240 500 360', 'Left side, from the point up to the dip'],
-    ['M500 360 C540 240 680 190 780 300 C880 420 800 620 500 820', 'Now mirror it on the right']] },
-  { id: 'star', cat: 'Shapes & things', title: 'Five-point star', steps: starSteps() },
+    ['M500 360 C540 240 680 190 780 300 C880 420 800 620 500 820', 'Now mirror it on the right']],
+    paint: byRule(() => '#D9466F') },
+  { id: 'star', cat: 'Shapes & things', title: 'Five-point star', steps: starSteps(), paint: byRule(() => '#F6C945') },
   { id: 'house', cat: 'Shapes & things', title: 'Little house', steps: [
     ['M300 450 L300 800 L700 800 L700 450', 'Draw the walls'],
     ['M250 500 L500 250 L750 500', 'Add a pointy roof'],
     ['M450 800 L450 650 L550 650 L550 800', 'A front door'],
     ['M580 520 L660 520 L660 600 L580 600 Z', 'A square window'],
-    ['M610 360 L610 280 L670 280 L670 420', 'And a chimney']] },
+    ['M610 360 L610 280 L670 280 L670 420', 'And a chimney']],
+    paint: byRule(r => inP('M450 800 L450 650 L550 650 L550 800 Z', r) ? '#A7724A' : inP('M580 520 L660 520 L660 600 L580 600 Z', r) ? '#9ED3EC'
+      : inP('M610 280 L670 280 L670 420 L610 360 Z', r) ? '#B83A3A' : '#FBE7A1') },
   { id: 'cup', cat: 'Shapes & things', title: 'Cup of tea', steps: [
     [E(500, 400, 200, 45), 'Start with the oval rim'],
     ['M300 400 L345 780 Q355 820 400 820 L600 820 Q645 820 655 780 L700 400', 'Draw the body of the cup'],
     ['M688 480 C810 470 820 660 668 690', 'Add the handle'],
-    ['M440 320 C410 270 470 230 440 170 M540 320 C510 270 570 230 540 170', 'Two wisps of steam']] },
+    ['M440 320 C410 270 470 230 440 170 M540 320 C510 270 570 230 540 170', 'Two wisps of steam']],
+    paint: byRule(r => inP(E(500, 400, 200, 45), r) ? '#A7724A' : inP('M300 400 L345 780 Q355 820 400 820 L600 820 Q645 820 655 780 L700 400 Z', r) ? '#4D8FE0' : null) },
 
   { id: 'flower', cat: 'Nature', title: 'Daisy', steps: [
     [C(500, 350, 60), 'Draw the centre of the flower'],
@@ -711,17 +847,20 @@ const LESSONS = [
     [petal(500, 350, 126), 'Keep going round'],
     [petal(500, 350, 198), 'Last petal'],
     ['M500 410 C480 560 530 720 500 900', 'A long stem'],
-    ['M505 700 C560 610 670 610 720 640 C660 720 570 740 505 700 M500 800 C440 720 330 720 285 745 C340 820 430 840 500 800', 'Two leaves']] },
+    ['M505 700 C560 610 670 610 720 640 C660 720 570 740 505 700 M500 800 C440 720 330 720 285 745 C340 820 430 840 500 800', 'Two leaves']],
+    paint: byRule(r => r.y > 600 ? '#7BC67E' : Math.hypot(r.x - 500, r.y - 350) < 60 ? '#F6C945' : '#F6B5C8') },
   { id: 'tree', cat: 'Nature', title: 'Apple tree', steps: [
     [scallops(500, 400, 210, 9, 85, -90), 'Draw the fluffy treetop, bump by bump'],
     ['M455 900 L465 600 M545 900 L535 600', 'Two lines for the trunk'],
     ['M200 900 L800 900', 'The ground'],
-    [C(420, 380, 24) + ' ' + C(580, 330, 24) + ' ' + C(565, 480, 24), 'Three apples']] },
+    [C(420, 380, 24) + ' ' + C(580, 330, 24) + ' ' + C(565, 480, 24), 'Three apples']],
+    paint: byRule(r => inP(C(420, 380, 24) + ' ' + C(580, 330, 24) + ' ' + C(565, 480, 24), r) ? '#B83A3A' : r.y > 640 ? '#A7724A' : '#7BC67E') },
   { id: 'mushroom', cat: 'Nature', title: 'Mushroom', steps: [
     ['M240 520 C240 240 760 240 760 520 Z', 'Draw the round cap'],
     ['M400 520 C385 650 380 760 400 820 L600 820 C620 760 615 650 600 520', 'Now the stalk'],
     [C(420, 420, 34) + ' ' + C(560, 365, 28) + ' ' + C(650, 455, 24), 'Add some spots'],
-    ['M140 822 L400 822 M600 822 L860 822', 'And the ground']] },
+    ['M140 822 L400 822 M600 822 L860 822', 'And the ground']],
+    paint: byRule(r => inP(C(420, 420, 34) + ' ' + C(560, 365, 28) + ' ' + C(650, 455, 24), r) ? null : inP('M240 520 C240 240 760 240 760 520 Z', r) ? '#B83A3A' : '#FBE7A1') },
 
   { id: 'cat', cat: 'Animals', title: 'Cat face', steps: [
     [E(500, 540, 260, 230), 'Start with a big round head'],
@@ -730,19 +869,23 @@ const LESSONS = [
     [C(410, 505, 26) + ' ' + C(590, 505, 26), 'Two eyes'],
     ['M478 585 L522 585 L500 612 Z', 'A little nose'],
     ['M500 612 Q480 655 445 640 M500 612 Q520 655 555 640', 'A happy mouth'],
-    ['M345 600 L215 580 M345 628 L215 645 M655 600 L785 580 M655 628 L785 645', 'Whiskers!']] },
+    ['M345 600 L215 580 M345 628 L215 645 M655 600 L785 580 M655 628 L785 645', 'Whiskers!']],
+    paint: byRule(r => inP(C(410, 505, 26) + ' ' + C(590, 505, 26), r) ? '#7BC67E' : inP('M478 585 L522 585 L500 612 Z', r) ? '#D9466F' : r.y < 400 ? '#F6B5C8' : '#F28C38') },
   { id: 'fish', cat: 'Animals', title: 'Goldfish', steps: [
     ['M200 500 C300 330 600 330 700 500 C600 670 300 670 200 500', 'Draw the body'],
     ['M700 500 L850 380 L830 500 L850 620 Z', 'A swishy tail'],
-    ['M380 388 Q440 260 560 378', 'Top fin'],
+    ['M380 390 Q440 260 566 392', 'Top fin'],
     ['M390 410 Q440 500 390 590', 'The gill line'],
     [C(300, 470, 22), 'An eye'],
-    [C(140, 330, 22) + ' ' + C(105, 240, 14), 'Bubbles']] },
+    [C(140, 330, 22) + ' ' + C(105, 240, 14), 'Bubbles']],
+    paint: byRule(r => r.x < 200 || inP(C(300, 470, 22), r) ? null : inP('M700 500 L850 380 L830 500 L850 620 Z', r) || r.y < 385 ? '#F6C945' : '#F28C38') },
   { id: 'snail', cat: 'Animals', title: 'Snail', steps: [
     [spiral(500, 520, 40, 5), 'Spiral out to make the shell'],
     ['M300 700 L255 640 C215 585 130 610 130 690 Q130 770 200 770 L790 770 Q860 770 860 735 Q855 700 800 700 Z', 'The long, squishy body'],
     ['M190 612 L150 500 M230 602 L245 485', 'Two antennae'],
-    [C(150, 488, 14) + ' ' + C(245, 472, 14), 'Little dots on top']] },
+    [C(150, 488, 14) + ' ' + C(245, 472, 14), 'Little dots on top']],
+    paint: byRule(r => inP('M300 700 L255 640 C215 585 130 610 130 690 Q130 770 200 770 L790 770 Q860 770 860 735 Q855 700 800 700 Z', r) ? '#C9A6E8'
+      : Math.hypot(r.x - 500, r.y - 520) < 210 ? '#F28C38' : null) },
 ];
 const CATS = [
   ['Colouring pages', 'Detailed pictures to colour in. Trace them first if you fancy a longer session.'],
@@ -769,6 +912,93 @@ function stepGeom(d) {
     geomCache.set(d, { subs, pts: subs.flatMap(s => s.pts) });
   }
   return geomCache.get(d);
+}
+
+/* ---------- regions: the closed shapes of a page, for the reference picture and the colour guide ---------- */
+const RM = 1000;
+function analyse(lesson) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = RM;
+  const x = cv.getContext('2d', { willReadFrequently: true });
+  x.strokeStyle = '#000'; x.lineWidth = lesson.detail ? 3.2 : 6; x.lineCap = 'round'; x.lineJoin = 'round';
+  for (const [d] of lesson.steps) x.stroke(new Path2D(d));
+  const a = x.getImageData(0, 0, RM, RM).data, N = RM * RM;
+  // Label the gaps between lines, using the same "is this a line" test as the fill tool.
+  const lab = new Int32Array(N).fill(-1), regs = [], stack = [];
+  const open = k => lab[k] === -1 && a[k * 4 + 3] <= 110;
+  for (let i = 0; i < N; i++) {
+    if (!open(i)) continue;
+    const id = regs.length; let n = 0, sx = 0, sy = 0, edge = false;
+    lab[i] = id; stack.push(i);
+    while (stack.length) {
+      const k = stack.pop(), y = (k / RM) | 0, px = k - y * RM;
+      n++; sx += px; sy += y;
+      if (px === 0 || y === 0 || px === RM - 1 || y === RM - 1) edge = true;
+      if (px > 0 && open(k - 1)) { lab[k - 1] = id; stack.push(k - 1); }
+      if (px < RM - 1 && open(k + 1)) { lab[k + 1] = id; stack.push(k + 1); }
+      if (y > 0 && open(k - RM)) { lab[k - RM] = id; stack.push(k - RM); }
+      if (y < RM - 1 && open(k + RM)) { lab[k + RM] = id; stack.push(k + RM); }
+    }
+    regs.push({ id, area: n, cx: sx / n, cy: sy / n, edge, color: null });
+  }
+  // Distance to the nearest line (3-4 chamfer); each region's deepest point is where its guide dot goes.
+  const D = new Uint16Array(N);
+  for (let k = 0; k < N; k++) D[k] = lab[k] < 0 ? 0 : 65000;
+  for (let y = 0; y < RM; y++) for (let px = 0; px < RM; px++) {
+    const k = y * RM + px; if (!D[k]) continue;
+    let v = D[k];
+    if (px > 0) v = Math.min(v, D[k - 1] + 3);
+    if (y > 0) { v = Math.min(v, D[k - RM] + 3); if (px > 0) v = Math.min(v, D[k - RM - 1] + 4); if (px < RM - 1) v = Math.min(v, D[k - RM + 1] + 4); }
+    D[k] = v;
+  }
+  for (let y = RM - 1; y >= 0; y--) for (let px = RM - 1; px >= 0; px--) {
+    const k = y * RM + px; if (!D[k]) continue;
+    let v = D[k];
+    if (px < RM - 1) v = Math.min(v, D[k + 1] + 3);
+    if (y < RM - 1) { v = Math.min(v, D[k + RM] + 3); if (px < RM - 1) v = Math.min(v, D[k + RM + 1] + 4); if (px > 0) v = Math.min(v, D[k + RM - 1] + 4); }
+    D[k] = v;
+  }
+  const best = new Int32Array(regs.length), bd = new Uint16Array(regs.length);
+  for (let k = 0; k < N; k++) { const l = lab[k]; if (l >= 0 && D[k] > bd[l]) { bd[l] = D[k]; best[l] = k; } }
+  for (const r of regs) {
+    const k = best[r.id];
+    r.x = k % RM + .5; r.y = ((k / RM) | 0) + .5; r.thick = bd[r.id] / 3;
+    r.r = Math.hypot(r.cx - 500, r.cy - 500); r.tiny = r.area < 40 || r.thick < 1.5;
+  }
+  if (lesson.paint) lesson.paint(regs);
+  for (const r of regs) if (r.color === '#FFFFFF' || r.tiny || r.edge) r.color = null;
+  const tally = new Map();
+  for (const r of regs) if (r.color) tally.set(r.color, (tally.get(r.color) || 0) + r.area);
+  return { lab, regs, colours: [...tally.keys()].sort((p, q) => tally.get(q) - tally.get(p)) };
+}
+// The colours alone, as an image: thumbnails draw their lines over it.
+function refImage(an) {
+  const N = RM * RM, pal = an.colours.map(hexRGB), W = [255, 255, 255];
+  const rc = an.regs.map(r => r.tiny ? -2 : r.color ? an.colours.indexOf(r.color) : -1);
+  const ci = new Int16Array(N);
+  for (let k = 0; k < N; k++) ci[k] = an.lab[k] >= 0 ? rc[an.lab[k]] : -2;
+  // Spread colour under the lines and into slivers, so no white shows at the edges.
+  for (let pass = 0, changed = true; pass < 6 && changed; pass++) {
+    changed = false;
+    for (let k = 0; k < N; k++) {
+      if (ci[k] !== -2) continue;
+      const px = k % RM;
+      const v = px > 0 && ci[k - 1] > -2 ? ci[k - 1] : px < RM - 1 && ci[k + 1] > -2 ? ci[k + 1]
+        : k >= RM && ci[k - RM] > -2 ? ci[k - RM] : k < N - RM && ci[k + RM] > -2 ? ci[k + RM] : -2;
+      if (v !== -2) { ci[k] = v; changed = true; }
+    }
+  }
+  const cv = document.createElement('canvas'); cv.width = cv.height = RM;
+  const x = cv.getContext('2d'), im = x.createImageData(RM, RM), d = im.data;
+  for (let k = 0; k < N; k++) { const c = ci[k] >= 0 ? pal[ci[k]] : W, p = k * 4; d[p] = c[0]; d[p + 1] = c[1]; d[p + 2] = c[2]; d[p + 3] = 255; }
+  x.putImageData(im, 0, 0);
+  const o = document.createElement('canvas'); o.width = o.height = 500;
+  const ox = o.getContext('2d'); ox.imageSmoothingQuality = 'high'; ox.drawImage(cv, 0, 0, 500, 500);
+  return o.toDataURL('image/jpeg', .9);
+}
+const refs = new Map();   // lessonId -> { url, colours }
+function refFor(lesson, an) {
+  if (!refs.has(lesson.id)) { an = an || analyse(lesson); refs.set(lesson.id, { url: an.colours.length ? refImage(an) : null, colours: an.colours }); }
+  return refs.get(lesson.id);
 }
 
 /* ---------- scoring ---------- */
@@ -852,7 +1082,25 @@ function streak() {
 
 /* ---------- home ---------- */
 const starsHTML = n => `<span class="stars" aria-label="${n} of 3 stars">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}">★</i>`).join('')}</span>`;
-const thumbSVG = lesson => `<svg viewBox="0 0 1000 1000" aria-hidden="true">${lesson.steps.map(s => `<path d="${s[0]}"/>`).join('')}</svg>`;
+const thumbSVG = lesson => {
+  const url = refs.get(lesson.id)?.url;
+  return `<svg viewBox="0 0 1000 1000" aria-hidden="true">${url ? `<image href="${url}" width="1000" height="1000"/>` : ''}${lesson.steps.map(s => `<path d="${s[0]}"/>`).join('')}</svg>`;
+};
+const fmtTime = secs => { const s = Math.round(secs); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`; };
+// Work out the coloured thumbnails one at a time while the shelf is showing.
+let warmT = 0;
+function warmRefs() {
+  clearTimeout(warmT);
+  const next = LESSONS.find(l => !refs.has(l.id));
+  if (!next || !$('#play').hidden) return;
+  warmT = setTimeout(() => {
+    if (!$('#play').hidden) return;
+    refFor(next);
+    const th = document.querySelector(`.card[data-lesson="${next.id}"] .thumb`);
+    if (th) th.innerHTML = thumbSVG(next);
+    warmRefs();
+  }, 16);
+}
 function renderHome() {
   const total = LESSONS.reduce((a, l) => a + (progress[l.id] || 0), 0);
   $('#chipStars').innerHTML = `<span class="star">★</span> ${total} / ${LESSONS.length * 3}`;
@@ -872,15 +1120,21 @@ function renderHome() {
       </button>`).join('')}</div></section>`;
   }
   $('#shelves').innerHTML = html;
+  warmRefs();
 }
 let chosen = null;
 $('#shelves').addEventListener('click', e => {
   const c = e.target.closest('.card'); if (!c) return;
   if (c.hasAttribute('data-free')) { startLesson(null, 'colour'); return; }
   chosen = LESSONS.find(l => l.id === c.dataset.lesson);
+  const ref = refFor(chosen);
   $('#stTitle').textContent = chosen.title;
   $('#stThumb').className = 'thumb' + (chosen.detail ? ' detail' : '');
   $('#stThumb').innerHTML = thumbSVG(chosen);
+  $('#stTimes').innerHTML = [[timesFor(chosen.id, 'trace'), 'Traced'], [timesFor(chosen.id, 'colour'), 'Coloured']].filter(([t]) => t.length)
+    .map(([t, w]) => `${w} ${t.length === 1 ? 'once' : t.length + ' times'} · best <b>${fmtTime(Math.min(...t.map(e => e.s)))}</b>`).join('<br>');
+  $('#stGuideRow').hidden = !ref.colours.length;
+  $('#stGuide').checked = !!ref.colours.length && firstTime(chosen);
   $('#stTraceSub').textContent = `${chosen.steps.length} ${chosen.steps.length === 1 ? 'step' : 'steps'}, earn stars as you go, then colour it in`;
   $('#stTrace').classList.toggle('primary', !chosen.detail);
   $('#stColour').classList.toggle('primary', !!chosen.detail);
@@ -889,8 +1143,8 @@ $('#shelves').addEventListener('click', e => {
   if (chosen.detail) box.prepend($('#stColour')); else box.prepend($('#stTrace'));
   $('#startOv').hidden = false;
 });
-$('#stTrace').addEventListener('click', () => { $('#startOv').hidden = true; startLesson(chosen, 'trace'); });
-$('#stColour').addEventListener('click', () => { $('#startOv').hidden = true; startLesson(chosen, 'colour'); });
+$('#stTrace').addEventListener('click', () => { $('#startOv').hidden = true; startLesson(chosen, 'trace', $('#stGuide').checked); });
+$('#stColour').addEventListener('click', () => { $('#startOv').hidden = true; startLesson(chosen, 'colour', $('#stGuide').checked); });
 
 /* ---------- play state ---------- */
 const stage = $('#stage'), sheet = $('#sheet'), guide = $('#guide');
@@ -904,14 +1158,27 @@ const S = {
   lesson: null, mode: 'trace', step: 0, phase: 'trace',
   stepStrokes: [], stepStars: [], stepScores: [],
   active: null,        // {id, type, st, act}
-  undo: [], demoRAF: 0, fadeTimer: 0, clearArmed: false, started: 0, prevTool: 'pen',
+  undo: [], demoRAF: 0, fadeTimer: 0, clearArmed: false, prevTool: 'pen',
+  ready: false,        // the current step is traced; waiting for Continue
+  guided: false, elapsed: 0, runFrom: 0,
 };
+// The colour guide: the page's regions, which of them hold the right colour yet, and whether all do.
+const G = { on: false, an: null, done: null, all: false };
 
-function startLesson(lesson, mode) {
+function startLesson(lesson, mode, guided) {
   S.lesson = lesson; S.mode = mode; S.step = 0; S.stepStrokes = []; S.stepStars = []; S.stepScores = [];
-  S.undo = []; S.active = null; S.started = Date.now();
+  S.undo = []; S.active = null; S.ready = false; S.guided = !!guided;
+  S.elapsed = 0; S.runFrom = Date.now();
   ink.clearRect(0, 0, 1000, 1000); col.clearRect(0, 0, 1000, 1000); wet.clearRect(0, 0, 1000, 1000);
   guide.innerHTML = '';
+  clearTimeout(warmT);
+  G.an = lesson ? analyse(lesson) : null;
+  const ref = lesson ? refFor(lesson, G.an) : null;
+  G.on = S.guided && !!ref?.colours.length; G.done = G.an && new Uint8Array(G.an.regs.length); G.all = false;
+  $('#bDone').classList.remove('ready');
+  $('#refThumb').className = 'thumb' + (lesson?.detail ? ' detail' : '');
+  $('#refThumb').innerHTML = lesson ? thumbSVG(lesson) : '';
+  $('#refCard').hidden = !(ref?.url && settings.ref); $('#refCard').classList.remove('big');
   $('#home').hidden = true; $('#play').hidden = false; $('#result').hidden = true;
   $('#pTitle').textContent = lesson ? lesson.title : 'Free draw';
   sizeStage(); resetView();
@@ -921,7 +1188,7 @@ function startLesson(lesson, mode) {
     if (lesson) inkLineArt(lesson);
     enterColor();
   }
-  syncRail(); renderDots();
+  syncRail(); renderDots(); tickClock();
 }
 function inkLineArt(lesson) {
   ink.save(); ink.strokeStyle = INK; ink.lineWidth = lesson.detail ? 3.2 : 6; ink.lineCap = 'round'; ink.lineJoin = 'round';
@@ -1003,11 +1270,20 @@ function syncRail() {
     b.classList.toggle('on', b.dataset.tool === kit.tool);
     b.classList.toggle('off', tracing && (b.dataset.tool === 'fill' || b.dataset.tool === 'eraser'));
   });
-  document.querySelectorAll('#swatches .sw[data-c], #recentSw .sw').forEach(b => b.classList.toggle('on', b.dataset.c === kit.color));
   $('#curSw').style.background = kit.color; $('#curHex').textContent = kit.color.toUpperCase();
   const recent = kit.recent.slice(0, 8);
   $('#recentSw').innerHTML = recent.map(c => `<button class="sw" type="button" data-c="${c}" style="background:${c}" aria-label="Recent colour ${c}"></button>`).join('');
   $('#recentLabel').hidden = $('#recentSw').hidden = !recent.length;
+  const hasRef = !!(S.lesson && refs.get(S.lesson.id)?.url), guiding = G.on && !tracing;
+  $('#bRef').hidden = !hasRef; $('#bRef').classList.toggle('on', !$('#refCard').hidden);
+  $('#bGuide').hidden = !hasRef || tracing; $('#bGuide').classList.toggle('on', G.on);
+  $('#guideLabel').hidden = $('#guideSw').hidden = !guiding;
+  $('#guideSw').innerHTML = guiding ? G.an.colours.map(c => {
+    const done = G.an.regs.every(r => r.color !== c || G.done[r.id]);
+    return `<button class="sw${done ? ' done' : ''}" type="button" data-c="${c}" style="background:${c}" aria-label="Colour ${c}${done ? ', all done' : ''}"></button>`;
+  }).join('') : '';
+  document.querySelectorAll('#swatches .sw[data-c], #recentSw .sw, #guideSw .sw').forEach(b => b.classList.toggle('on', b.dataset.c === kit.color));
+  drawHints();
   const sz = kit.sizes[sizeKey()];
   $('#sizeIn').value = sz; $('#sizeOut').textContent = sz;
   $('#sizeIn').disabled = kit.tool === 'fill' || kit.tool === 'picker';
@@ -1018,7 +1294,9 @@ function syncRail() {
 }
 function syncButtons() {
   if (S.phase === 'trace') {
-    $('#bNext .tl').textContent = S.stepStrokes.length ? 'Next' : 'Skip';
+    const last = S.step === S.lesson.steps.length - 1;
+    $('#bNext .tl').textContent = S.ready ? (last ? 'Colour it' : 'Continue') : S.stepStrokes.length ? 'Next' : 'Skip';
+    $('#bNext').classList.toggle('primary', S.ready); $('#bNext').classList.toggle('ready', S.ready);
     $('#bUndo').disabled = !S.stepStrokes.length;
   } else $('#bUndo').disabled = !S.undo.length;
 }
@@ -1037,6 +1315,14 @@ $('#swatches').addEventListener('click', e => {
   pickColor(b.dataset.c, false);
 });
 $('#recentSw').addEventListener('click', e => { const b = e.target.closest('.sw'); if (b) pickColor(b.dataset.c, false); });
+$('#guideSw').addEventListener('click', e => { const b = e.target.closest('.sw'); if (b) pickColor(b.dataset.c, false); });
+$('#bRef').addEventListener('click', () => { settings.ref = $('#refCard').hidden; saveSettings(); $('#refCard').hidden = !settings.ref; syncRail(); });
+$('#refCard').addEventListener('click', () => $('#refCard').classList.toggle('big'));
+$('#bGuide').addEventListener('click', () => {
+  G.on = !G.on; G.all = false;
+  if (G.on) checkGuide(); else { $('#bDone').classList.remove('ready'); syncRail(); }
+  toast(G.on ? 'Colour guide on: each dot shows the colour for that part' : 'Colour guide off');
+});
 $('#tools').addEventListener('click', e => {
   const b = e.target.closest('.tool'); if (!b) return;
   const t = b.dataset.tool;
@@ -1066,24 +1352,39 @@ $('#sizeIn').addEventListener('change', saveKit);
 $('#sizeIn').addEventListener('pointerdown', showSize);
 
 /* ---------- zoom & pan ---------- */
-const view = { z: 1, tx: 0, ty: 0 };
+// The sheet sits at stage point T + z·R(r)·u for each sheet point u (stage pixels at 100%).
+const view = { z: 1, r: 0, tx: 0, ty: 0 };
 const ZMAX = 6;
+function toStage(u) { const c = Math.cos(view.r), s = Math.sin(view.r); return { x: view.tx + view.z * (c * u.x - s * u.y), y: view.ty + view.z * (s * u.x + c * u.y) }; }
+function toSheet(p) { const c = Math.cos(view.r), s = Math.sin(view.r), dx = p.x - view.tx, dy = p.y - view.ty; return { x: (c * dx + s * dy) / view.z, y: (c * dy - s * dx) / view.z }; }
 function clampView() {
   const s = stage.clientWidth;
   view.z = Math.max(1, Math.min(ZMAX, view.z));
-  view.tx = Math.min(0, Math.max(s - s * view.z, view.tx));
-  view.ty = Math.min(0, Math.max(s - s * view.z, view.ty));
+  if (!view.r) {
+    view.tx = Math.min(0, Math.max(s - s * view.z, view.tx));
+    view.ty = Math.min(0, Math.max(s - s * view.z, view.ty));
+  } else {   // turned: just keep the middle of the page on screen
+    const m = toStage({ x: s / 2, y: s / 2 });
+    view.tx += Math.min(s, Math.max(0, m.x)) - m.x; view.ty += Math.min(s, Math.max(0, m.y)) - m.y;
+  }
 }
 function applyView() {
   clampView();
-  sheet.style.transform = `translate(${view.tx}px, ${view.ty}px) scale(${view.z})`;
-  $('#zLabel').textContent = Math.round(view.z * 100) + '%';
+  sheet.style.transform = `translate(${view.tx}px, ${view.ty}px) rotate(${view.r}rad) scale(${view.z})`;
+  const deg = Math.round(view.r * 180 / Math.PI);
+  $('#zLabel').textContent = Math.round(view.z * 100) + '%' + (deg ? ` ${deg}°` : '');
 }
-function resetView() { view.z = 1; view.tx = 0; view.ty = 0; applyView(); }
+function resetView() { view.z = 1; view.r = 0; view.tx = 0; view.ty = 0; applyView(); }
 function zoomAt(px, py, factor) {
-  const z = Math.max(1, Math.min(ZMAX, view.z * factor));
-  const cx = (px - view.tx) / view.z, cy = (py - view.ty) / view.z;
-  view.z = z; view.tx = px - cx * z; view.ty = py - cy * z; applyView();
+  const u = toSheet({ x: px, y: py });
+  view.z = Math.max(1, Math.min(ZMAX, view.z * factor));
+  const q = toStage(u); view.tx += px - q.x; view.ty += py - q.y; applyView();
+}
+// Two-finger turns snap to square when close, and only start after a deliberate twist so pinching stays steady.
+function snapAngle(r) {
+  r = Math.atan2(Math.sin(r), Math.cos(r));
+  const q = Math.round(r / (Math.PI / 2)) * Math.PI / 2;
+  return Math.abs(r - q) < .08 ? (Math.abs(q) < 1e-9 ? 0 : q) : r;
 }
 $('#zIn').addEventListener('click', () => zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 1.5));
 $('#zOut').addEventListener('click', () => zoomAt(stage.clientWidth / 2, stage.clientHeight / 2, 1 / 1.5));
@@ -1098,18 +1399,25 @@ stage.addEventListener('wheel', e => {
 const touches = new Map();
 let gesture = null;
 function stagePt(e) { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+const midOf = p => ({ x: p.reduce((a, q) => a + q.x, 0) / p.length, y: p.reduce((a, q) => a + q.y, 0) / p.length });
+const twoFinger = p => p.length > 1 ? { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y), a: Math.atan2(p[1].y - p[0].y, p[1].x - p[0].x) } : null;
 function beginGesture() {
   const p = [...touches.values()]; if (!p.length) { gesture = null; return; }
-  const m = { x: p.reduce((a, q) => a + q.x, 0) / p.length, y: p.reduce((a, q) => a + q.y, 0) / p.length };
-  gesture = { m0: m, d0: p.length > 1 ? Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) : 0, z0: view.z, tx0: view.tx, ty0: view.ty };
+  const m = midOf(p), two = twoFinger(p);
+  gesture = { u0: toSheet(m), d0: two ? two.d : 0, a0: two ? two.a : 0, z0: view.z, r0: view.r, turning: false };
 }
 function moveGesture() {
-  const p = [...touches.values()]; if (!p.length || !gesture) return;
-  const m = { x: p.reduce((a, q) => a + q.x, 0) / p.length, y: p.reduce((a, q) => a + q.y, 0) / p.length };
-  let z = gesture.z0;
-  if (gesture.d0 && p.length > 1) z = Math.max(1, Math.min(ZMAX, gesture.z0 * Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) / gesture.d0));
-  const cx = (gesture.m0.x - gesture.tx0) / gesture.z0, cy = (gesture.m0.y - gesture.ty0) / gesture.z0;
-  view.z = z; view.tx = m.x - cx * z; view.ty = m.y - cy * z; applyView();
+  const p = [...touches.values()], g = gesture; if (!p.length || !g) return;
+  const m = midOf(p), two = twoFinger(p);
+  let z = g.z0, r = g.r0;
+  if (g.d0 && two) {
+    z = g.z0 * two.d / g.d0;
+    let da = two.a - g.a0; da = Math.atan2(Math.sin(da), Math.cos(da));
+    if (!g.turning && Math.abs(da) > .2) { g.turning = true; g.a0 += Math.sign(da) * .2; da -= Math.sign(da) * .2; }
+    if (g.turning) r = snapAngle(g.r0 + da);
+  }
+  view.z = Math.max(1, Math.min(ZMAX, z)); view.r = r;
+  const q = toStage(g.u0); view.tx += m.x - q.x; view.ty += m.y - q.y; applyView();
 }
 
 /* ---------- undo (tile snapshots, so big canvases stay cheap) ---------- */
@@ -1134,11 +1442,12 @@ function pushAction(act) {
   while (total > MAX_UNDO_BYTES && S.undo.length > 1) total -= S.undo.shift().bytes;
   S.clearArmed = false; $('#bClear').classList.remove('primary');
   syncButtons();
+  if (S.phase === 'color') checkGuide();
 }
 $('#bUndo').addEventListener('click', () => {
   if (S.phase === 'trace') { if (!S.stepStrokes.length) return; S.stepStrokes.pop(); }
   const a = S.undo.pop(); if (a) restore(a);
-  syncButtons();
+  if (S.phase === 'trace') updateReady(); else { syncButtons(); checkGuide(); }
 });
 
 /* ---------- drawing ---------- */
@@ -1223,11 +1532,14 @@ function renderWater(ctx, st, box) {
 }
 
 let rect = null;
-function toVB(e) { return { x: (e.clientX - rect.left) / rect.width * 1000, y: (e.clientY - rect.top) / rect.height * 1000, p: e.pressure }; }
+function toVB(e) {
+  const u = toSheet({ x: e.clientX - rect.left, y: e.clientY - rect.top }), k = 1000 / stage.clientWidth;
+  return { x: u.x * k, y: u.y * k, p: e.pressure };
+}
 
 stage.addEventListener('contextmenu', e => e.preventDefault());
 stage.addEventListener('pointerdown', e => {
-  if (e.button > 0) return;
+  if (e.button > 0 || e.target.closest('.refcard, .zoombar')) return;
   if (e.pointerType === 'touch') {
     touches.set(e.pointerId, stagePt(e));
     try { stage.setPointerCapture(e.pointerId); } catch {}
@@ -1243,7 +1555,7 @@ stage.addEventListener('pointerdown', e => {
   startStroke(e);
 });
 function startStroke(e) {
-  rect = sheet.getBoundingClientRect();
+  rect = stage.getBoundingClientRect();
   const pt = toVB(e);
   if (pt.x < 0 || pt.y < 0 || pt.x > 1000 || pt.y > 1000) return;
   stopDemo();
@@ -1336,7 +1648,19 @@ function evaluateStroke(st, act) {
   }
   S.stepStrokes.push(st);
   pushAction(act);
-  if (stepTraced(S.stepStrokes, t)) completeStep();
+  updateReady();
+}
+// When a step is traced we wait for Continue, so there's time to tidy up or just admire it.
+function updateReady() {
+  const was = S.ready;
+  S.ready = !!S.stepStrokes.length && stepTraced(S.stepStrokes, tol());
+  guide.querySelector('.cur')?.classList.toggle('done', S.ready);
+  if (S.ready && !was) {
+    const last = S.step === S.lesson.steps.length - 1;
+    toast(last ? 'All traced! Tap Colour it when you are ready' : 'Step traced! Tap Continue when you are ready');
+    if (settings.sound) tone(659.25, 0, .3, .07);
+  }
+  syncButtons();
 }
 // A step can hold several separate lines. Each one must be traced on its own: stroke points only count
 // towards the line they're nearest to, so drawing a neighbouring line doesn't tick off a short one.
@@ -1361,15 +1685,13 @@ function completeStep() {
   if (S.stepStrokes.length) m = metrics(g, S.stepStrokes, tol());
   S.stepStars[S.step] = m.stars; S.stepScores[S.step] = m.score;
   const last = S.stepStrokes.at(-1)?.pts.at(-1);
-  S.stepStrokes = []; S.undo = [];
+  S.stepStrokes = []; S.undo = []; S.ready = false;
   if (last) popStars(last, m.stars);
   chime(m.stars);
   S.step++;
   renderDots();
-  if (S.step >= S.lesson.steps.length) {
-    guide.innerHTML = '';
-    setTimeout(() => { if (S.phase === 'trace' && S.lesson) { enterColor(); syncRail(); renderDots(); } }, 650);
-  } else renderStep();
+  if (S.step >= S.lesson.steps.length) { guide.innerHTML = ''; enterColor(); syncRail(); renderDots(); }
+  else renderStep();
 }
 function popStars(p, n) {
   const el = document.createElement('div'); el.className = 'pop';
@@ -1392,6 +1714,48 @@ function enterColor() {
   $('#pHint').textContent = !S.lesson ? 'Draw anything you like. Pinch or use + to zoom in. Tap Finish to save it.'
     : S.lesson.detail ? 'Colour it in. Fill is quickest for small shapes; pinch or use + to zoom in.'
     : 'Colour it in! Tap Finish when you are happy with it.';
+  if (G.on) { $('#pHint').textContent = 'Each dot shows the colour for that part. Pick a colour to see where it goes.'; checkGuide(); }
+}
+
+/* ---------- colour guide ---------- */
+const hint = $('#cvHint').getContext('2d'), gdots = $('#gdots');
+const PAL_RGB = PALETTE.map(hexRGB);
+function nearestPalette(d) {
+  let bi = 0, bd = Infinity;
+  PAL_RGB.forEach((c, i) => { const e = (c[0] - d[0]) ** 2 + (c[1] - d[1]) ** 2 + (c[2] - d[2]) ** 2; if (e < bd) { bd = e; bi = i; } });
+  return PALETTE[bi];
+}
+// A part counts as done once the paint at its dot is nearest to the colour it wants.
+function checkGuide() {
+  if (!G.on || S.phase !== 'color') return;
+  let left = 0;
+  for (const r of G.an.regs) {
+    if (!r.color) continue;
+    const d = col.getImageData(Math.min(RES - 1, r.x * K | 0), Math.min(RES - 1, r.y * K | 0), 1, 1).data;
+    G.done[r.id] = d[3] > 90 && nearestPalette(d) === r.color ? 1 : 0;
+    if (!G.done[r.id]) left++;
+  }
+  if (!left && !G.all) { toast('Every part is coloured in! Tap Finish when you are happy'); chime(3); }
+  G.all = !left; $('#bDone').classList.toggle('ready', G.all);
+  syncRail();
+}
+// Dots in every part still to colour, and stripes over the parts that want the colour in hand.
+function drawHints() {
+  hint.clearRect(0, 0, RM, RM);
+  if (!G.on || S.phase !== 'color') { gdots.innerHTML = ''; return; }
+  const { lab, regs } = G.an, want = regs.map(r => r.color === kit.color && !G.done[r.id]);
+  if (want.includes(true)) {
+    const [cr, cg, cb] = hexRGB(kit.color), im = hint.createImageData(RM, RM), d = im.data;
+    for (let k = 0; k < lab.length; k++) {
+      const l = lab[k]; if (l < 0 || !want[l]) continue;
+      const p = k * 4; d[p] = cr; d[p + 1] = cg; d[p + 2] = cb; d[p + 3] = (k % RM + ((k / RM) | 0)) % 14 < 5 ? 170 : 45;
+    }
+    hint.putImageData(im, 0, 0);
+  }
+  gdots.innerHTML = regs.filter(r => r.color && !G.done[r.id]).map(r => {
+    const rad = Math.min(9, Math.max(2.5, r.thick * .45));
+    return `<circle cx="${r.x}" cy="${r.y}" r="${f(rad)}" fill="${r.color}" stroke="#24213F" stroke-width="${f(Math.max(.6, rad * .22))}"/>`;
+  }).join('');
 }
 $('#bClear').addEventListener('click', () => {
   if (!S.clearArmed) { S.clearArmed = true; $('#bClear').classList.add('primary'); toast(S.lesson ? 'Tap again to clear the colours' : 'Tap again to clear the page'); return; }
@@ -1521,7 +1885,8 @@ function saveToGallery(item) {
 $('#bDone').addEventListener('click', finish);
 function finish() {
   const img = compose();
-  markToday();
+  markToday(); pauseClock();
+  const secs = Math.round(elapsed());
   let stars = 0, acc = 0;
   const L = S.lesson, traced = L && S.mode === 'trace';
   if (traced) {
@@ -1530,15 +1895,21 @@ function finish() {
     acc = Math.round(100 * S.stepScores.reduce((a, b) => a + (b || 0), 0) / L.steps.length);
     if (stars > (progress[L.id] || 0)) { progress[L.id] = stars; store.set('progress', progress); }
   }
-  const mins = Math.max(1, Math.round((Date.now() - S.started) / 60000));
-  const saved = saveToGallery({ id: Date.now(), title: L ? L.title : 'Free draw', stars, date: new Date().toISOString(), img });
+  let hist = [];
+  if (L) {
+    const key = `${L.id}:${S.mode}`;
+    hist = [...(times[key] || []), { d: new Date().toISOString(), s: secs }].slice(-30);
+    times[key] = hist; store.set('times', times);
+  }
+  const saved = saveToGallery({ id: Date.now(), title: L ? L.title : 'Free draw', stars, secs, date: new Date().toISOString(), img });
   $('#rImg').src = img;
   $('#rStars').innerHTML = traced ? [0, 1, 2].map(i => `<i class="${i < stars ? 'on' : ''}">★</i>`).join('') : '';
   $('#rTitle').textContent = !traced ? 'Into the sketchbook!' : ['Good start!', 'Nice going!', 'Lovely work!', 'Perfect lines!'][stars];
   const three = S.stepStars.filter(s => s === 3).length;
   $('#rStats').innerHTML = traced
-    ? `Accuracy <b>${acc}%</b> · <b>${three}</b> of ${L.steps.length} steps with three stars · <b>${mins}</b> min`
-    : `<b>${mins}</b> ${mins === 1 ? 'minute' : 'minutes'} of drawing`;
+    ? `Accuracy <b>${acc}%</b> · <b>${three}</b> of ${L.steps.length} steps with three stars · took <b>${fmtTime(secs)}</b>`
+    : `Took <b>${fmtTime(secs)}</b>`;
+  $('#rTimes').innerHTML = timesHTML(hist);
   $('#rHint').textContent = saved
     ? 'Saved to My drawings. Press and hold the picture to save it to the tablet too.'
     : 'Could not save to My drawings on this device. Press and hold the picture to save it to the tablet.';
@@ -1547,14 +1918,24 @@ function finish() {
   $('#result').hidden = false;
   if (traced) fanfare(); else chime(1);
 }
-$('#rAgain').addEventListener('click', () => startLesson(S.lesson, S.mode));
-$('#rNext').addEventListener('click', () => { const n = LESSONS[LESSONS.indexOf(S.lesson) + 1]; startLesson(n, n.detail ? 'colour' : 'trace'); });
+// Times for this picture, oldest first, so a player can see themselves getting quicker.
+function timesHTML(hist) {
+  if (!hist.length) return '';
+  if (hist.length === 1) return '<div class="hint">Your first time with this one. Finish it again to see your times here.</div>';
+  const last = hist.slice(-12), max = Math.max(...last.map(e => e.s)), now = hist.at(-1).s;
+  const best = Math.min(...hist.slice(0, -1).map(e => e.s));
+  const bars = last.map((e, i) => `<span class="${i === last.length - 1 ? 'now' : ''}" style="height:${Math.max(8, e.s / max * 100)}%" title="${fmtDate(e.d)}: ${fmtTime(e.s)}"></span>`).join('');
+  const msg = now < best ? `New best time! Your previous best was <b>${fmtTime(best)}</b>.` : `Your best is <b>${fmtTime(best)}</b> from ${hist.length} goes.`;
+  return `<div class="small-label">Your times</div><div class="bars" aria-hidden="true">${bars}</div><div class="statline">${msg}</div>`;
+}
+$('#rAgain').addEventListener('click', () => startLesson(S.lesson, S.mode, G.on));
+$('#rNext').addEventListener('click', () => { const n = LESSONS[LESSONS.indexOf(S.lesson) + 1]; startLesson(n, n.detail ? 'colour' : 'trace', firstTime(n)); });
 $('#rHome').addEventListener('click', goHome);
 $('#backBtn').addEventListener('click', goHome);
 function goHome() {
   cancelAnimationFrame(S.demoRAF); clearTimeout(S.fadeTimer);
-  S.active = null; S.undo = [];
-  $('#result').hidden = true; $('#play').hidden = true; $('#home').hidden = false;
+  S.active = null; S.undo = []; pauseClock();
+  $('#result').hidden = true; $('#play').hidden = true; $('#home').hidden = false; tickClock();
   releaseWake(); renderHome();
 }
 
@@ -1573,7 +1954,7 @@ $('#galleryGrid').addEventListener('click', e => {
   viewing = it; delArmed = false;
   $('#vDelete .tl').textContent = 'Delete';
   $('#vTitle').textContent = it.title; $('#vImg').src = it.img;
-  $('#vMeta').textContent = `${fmtDate(it.date)}${it.stars ? ' · ' + '★'.repeat(it.stars) : ''} · Press and hold the picture to save it.`;
+  $('#vMeta').textContent = `${fmtDate(it.date)}${it.stars ? ' · ' + '★'.repeat(it.stars) : ''}${it.secs ? ' · took ' + fmtTime(it.secs) : ''} · Press and hold the picture to save it.`;
   $('#viewerOv').hidden = false;
 });
 $('#vDelete').addEventListener('click', () => {
@@ -1590,16 +1971,16 @@ document.querySelectorAll('.overlay').forEach(ov => ov.addEventListener('click',
 function renderSettings() {
   document.querySelectorAll('#segDiff button').forEach(b => b.classList.toggle('on', b.dataset.v === settings.difficulty));
   $('#sDemo').checked = settings.demo; $('#sFade').checked = settings.fade;
-  $('#sPen').checked = settings.penOnly; $('#sSound').checked = settings.sound; $('#sPressure').checked = settings.pressure;
+  $('#sPen').checked = settings.penOnly; $('#sSound').checked = settings.sound; $('#sPressure').checked = settings.pressure; $('#sTimer').checked = settings.timer;
 }
 let resetArmed = false;
 $('#openSettings').addEventListener('click', () => { renderSettings(); resetArmed = false; $('#sReset .tl').textContent = 'Reset'; $('#settingsOv').hidden = false; });
 $('#segDiff').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; settings.difficulty = b.dataset.v; saveSettings(); renderSettings(); });
-[['#sDemo', 'demo'], ['#sFade', 'fade'], ['#sPen', 'penOnly'], ['#sPressure', 'pressure'], ['#sSound', 'sound']].forEach(([sel, key]) =>
-  $(sel).addEventListener('change', e => { settings[key] = e.target.checked; saveSettings(); }));
+[['#sDemo', 'demo'], ['#sFade', 'fade'], ['#sPen', 'penOnly'], ['#sPressure', 'pressure'], ['#sSound', 'sound'], ['#sTimer', 'timer']].forEach(([sel, key]) =>
+  $(sel).addEventListener('change', e => { settings[key] = e.target.checked; saveSettings(); tickClock(); }));
 $('#sReset').addEventListener('click', () => {
   if (!resetArmed) { resetArmed = true; $('#sReset .tl').textContent = 'Tap again'; return; }
-  progress = {}; days = []; store.set('progress', progress); store.set('days', days);
+  progress = {}; days = []; times = {}; store.set('progress', progress); store.set('days', days); store.set('times', times);
   resetArmed = false; $('#sReset .tl').textContent = 'Done'; renderHome();
 });
 
@@ -1615,7 +1996,21 @@ new ResizeObserver(sizeStage).observe($('#stageWrap'));
 let wake = null;
 async function requestWake() { try { wake = await navigator.wakeLock?.request('screen'); } catch {} }
 function releaseWake() { try { wake?.release(); } catch {} wake = null; }
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !$('#play').hidden) requestWake(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) pauseClock();
+  else if (!$('#play').hidden) { requestWake(); resumeClock(); }
+});
+
+/* ---------- timer: counts only while the page is on screen and the picture is open ---------- */
+const elapsed = () => (S.elapsed + (S.runFrom ? Date.now() - S.runFrom : 0)) / 1000;
+function pauseClock() { if (S.runFrom) { S.elapsed += Date.now() - S.runFrom; S.runFrom = 0; } }
+function resumeClock() { if (!S.runFrom && !$('#play').hidden && $('#result').hidden) S.runFrom = Date.now(); }
+function tickClock() {
+  const el = $('#pClock');
+  el.hidden = !settings.timer || $('#play').hidden;
+  if (!el.hidden) el.textContent = fmtTime(elapsed());
+}
+setInterval(tickClock, 1000);
 
 try { if ('serviceWorker' in navigator && document.querySelector('link[rel="manifest"]')) navigator.serviceWorker.register('sw.js').catch(() => {}); } catch {}
 
