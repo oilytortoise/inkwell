@@ -1545,7 +1545,7 @@ stage.addEventListener('pointerdown', e => {
     try { stage.setPointerCapture(e.pointerId); } catch {}
     if (touches.size >= 2 || settings.penOnly || gesture) {
       if (S.active && S.active.type === 'touch') cancelActive();
-      beginGesture(); return;
+      S.tap = null; beginGesture(); return;
     }
   }
   if (S.active) {
@@ -1564,8 +1564,11 @@ function startStroke(e) {
     guide.querySelector('.cur')?.classList.toggle('faded', settings.fade);
   }
   const tool = kit.tool;
-  if (tool === 'picker') { eyedrop(pt); return; }
-  if (tool === 'fill') { if (S.phase !== 'trace') doFill(pt); return; }
+  if (tool === 'picker' || tool === 'fill') {
+    // A finger tap waits until it lifts, in case it's the first finger of a pinch or turn.
+    if (e.pointerType === 'touch') S.tap = { id: e.pointerId, pt, x: e.clientX, y: e.clientY }; else tapTool(pt);
+    return;
+  }
   if (S.phase === 'trace' && tool === 'eraser') return;
   try { stage.setPointerCapture(e.pointerId); } catch {}
   const pen = e.pointerType === 'pen';
@@ -1583,6 +1586,7 @@ stage.addEventListener('pointermove', e => {
     touches.set(e.pointerId, stagePt(e));
     if (gesture) { moveGesture(); return; }
   }
+  if (S.tap?.id === e.pointerId && Math.hypot(e.clientX - S.tap.x, e.clientY - S.tap.y) > 12) S.tap = null;
   const a = S.active; if (!a || a.id !== e.pointerId) return;
   const evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
   for (const ev of (evs.length ? evs : [e])) {
@@ -1598,6 +1602,7 @@ function endPointer(e) {
   if (e.pointerType === 'touch') {
     touches.delete(e.pointerId);
     if (gesture) { if (touches.size) beginGesture(); else gesture = null; return; }
+    if (S.tap?.id === e.pointerId) { const t = S.tap; S.tap = null; if (e.type === 'pointerup') tapTool(t.pt); return; }
   }
   const a = S.active; if (!a || a.id !== e.pointerId) return;
   S.active = null;
@@ -1616,6 +1621,11 @@ stage.addEventListener('pointercancel', endPointer);
 function cancelActive() {
   const a = S.active; S.active = null; if (!a) return;
   if (a.st.water) wet.clearRect(0, 0, 1000, 1000); else restore(a.act);
+}
+
+function tapTool(pt) {
+  if (kit.tool === 'picker') eyedrop(pt);
+  else if (S.phase !== 'trace') doFill(pt);
 }
 
 /* eyedropper: the colour you see, i.e. ink over paint over white paper */
